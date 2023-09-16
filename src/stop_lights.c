@@ -1,52 +1,70 @@
-#include <pic14/pic12f683.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
-#define GREEN_STATE 0;
-#define RED_STATE 1;
-#define YELLOW_STATE 2;
+// State Machine states
+#define TRAFFIC_GREEN_STATE 0
+#define TRAFFIC_BLINK_STATE 1
+#define TRANSITION_TO_CROSSWALK_STATE 2
+#define CROSSWALK_GREEN_STATE 3
+#define CROSSWALK_BLINK_STATE 4
+#define TRANSITION_TO_TRAFFIC_STATE 5
 
-struct stateMachine {
-    int current_state;
-    // We can add more variables needed here.
-};
+typedef unsigned int uint;
 
-void transitionToGreen(struct stateMachine sM) {
-    sM.current_state = GREEN_STATE;
+volatile uint buttonPressed = 0; // Flag to indicate button press
+volatile uint timerCounter = 0; // Timer counter to track time
+
+uint current_state = TRAFFIC_GREEN_STATE;
+
+ISR(INT0_vect) { // INTO button interrupt
+    buttonPressed = 1; // Button flag
 }
 
-void transitionToYellow(struct stateMachine sM) {
-    sM.current_state = YELLOW_STATE;
+ISR(TIMER0_COMPA_vect) { // Timer compare interrupt
+    timerCounter++; // Timer counter
 }
 
-void transitionToRed(struct stateMachine sM) {
-    sM.current_state = RED_STATE;
+void delay(float seconds) { // Delay function using timer
+    TCNT0 = 0; // Reset the timer
+    timerCounter = 0; // Reset counter
+    while (timerCounter < 30*seconds) {}
 }
 
-// Automatically transitions the state machine to the next state
-void updateStateMachine(struct stateMachine sM) {
-    switch (sM.current_state) {
-        case RED_STATE:
-            transitionToGreen(sM);
+void updateStateMachine() {
+    switch (current_state) {
+        // TRAFFIC_GREEN_STATE 
+         case TRAFFIC_GREEN_STATE:
             break;
-        case YELLOW_STATE:
-            transitionToRed(sM);
+        // TRAFFIC_BLINK_STATE
+        case TRAFFIC_BLINK_STATE:
             break;
-        case GREEN_STATE:
-            transitionToYellow(sM);
+        // TRANSITION_TO_CROSSWALK_STATE
+        case TRANSITION_TO_CROSSWALK_STATE:
             break;
-        default:
+        // CROSSWALK_GREEN_STATE
+        case CROSSWALK_GREEN_STATE:
+            break;
+        // CROSSWALK_BLINK_STATE
+        case CROSSWALK_BLINK_STATE:
+            break;
+        // TRANSITION_TO_TRAFFIC_STATE
+        case TRANSITION_TO_TRAFFIC_STATE:
+
             break;
     }
 }
 
 int main() {
-    struct stateMachine sM;
-    transitionToRed(sM);
+    GIMSK |= (1 << INT0); // Enable INT0
+    MCUCR |= (1 << ISC01); // Trigger on falling edge
+    sei(); // Enable global interrupts
+
+    TCCR0A |= (1 << WGM01); // Set CTC mode (WGM02 is in TCCR0B)
+    TIMSK |= (1 << OCIE0A); // Enable timer compare interrupt
+    TCCR0B |= (1 << CS02) | (1 << CS00); // Start timer with prescaler 1024
+    OCR0A = 255; // Set compare match value for desired delay
 
     while (1) {
-        // logic here, for example:
-        // if (sM.current_state == yellow)
-        // delay(time)
-        // updateStateMachine(sM)
-        
+        updateStateMachine();
     }
 }
